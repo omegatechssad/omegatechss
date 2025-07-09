@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PLS Commercial Flight Arrivals</title>
+  <title>PLS All Flights (Arrivals & Departures)</title>
   <meta charset="UTF-8">
   <meta http-equiv="refresh" content="300"> <!-- Refresh every 5 minutes -->
   <style>
@@ -32,12 +32,13 @@
   </style>
 </head>
 <body>
-  <h1>PLS Commercial Flight Arrivals</h1>
+  <h1>PLS All Flights (Arrivals & Departures)</h1>
   <table id="flightTable">
     <tr>
       <th>Flight</th>
       <th>Airline</th>
-      <th>Origin</th>
+      <th>From</th>
+      <th>To</th>
       <th>Date</th>
       <th>Time</th>
       <th>Status</th>
@@ -45,7 +46,7 @@
   </table>
 
   <script>
-    const apiUrl = "https://aviation-edge.com/v2/public/timetable?iataCode=PLS&type=arrival&key=e156f3-5ad117";
+    const apiUrl = "https://aviation-edge.com/v2/public/flights?depIata=PLS&arrIata=PLS&key=e156f3-5ad117";
 
     fetch(apiUrl)
       .then(response => response.json())
@@ -53,43 +54,43 @@
         const table = document.getElementById("flightTable");
 
         if (!Array.isArray(data)) {
-          table.innerHTML += `<tr><td colspan="6">Error: Invalid API response</td></tr>`;
+          table.innerHTML += `<tr><td colspan="7">Error: Invalid API response</td></tr>`;
           return;
         }
 
-        // Clear existing rows (except headers)
+        // Clear previous rows
         table.innerHTML = `
           <tr>
             <th>Flight</th>
             <th>Airline</th>
-            <th>Origin</th>
+            <th>From</th>
+            <th>To</th>
             <th>Date</th>
             <th>Time</th>
             <th>Status</th>
           </tr>`;
 
-        // Filter only valid commercial flights
-        const commercialFlights = data.filter(flight =>
+        const validFlights = data.filter(flight =>
           flight.airline?.name &&
           flight.flight?.iataNumber &&
           flight.departure?.iataCode &&
-          flight.arrival?.scheduledTime
+          flight.arrival?.iataCode &&
+          flight.departure?.scheduledTime
         );
 
-        // Sort by scheduled arrival time
-        commercialFlights.sort((a, b) =>
-          new Date(a.arrival.scheduledTime) - new Date(b.arrival.scheduledTime)
+        validFlights.sort((a, b) =>
+          new Date(a.departure.scheduledTime || 0) - new Date(b.departure.scheduledTime || 0)
         );
 
-        // Populate the table
-        commercialFlights.forEach(flight => {
+        validFlights.forEach(flight => {
           const flightNumber = flight.flight.iataNumber;
           const airline = flight.airline.name;
-          const origin = flight.departure.iataCode;
+          const from = flight.departure.iataCode;
+          const to = flight.arrival.iataCode;
 
-          const scheduledDate = new Date(flight.arrival.scheduledTime);
-          const date = scheduledDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-          const time = scheduledDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+          const scheduled = new Date(flight.departure.scheduledTime || flight.arrival.scheduledTime);
+          const date = scheduled.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+          const time = scheduled.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
           const status = flight.status || "Unknown";
 
@@ -97,21 +98,22 @@
             <tr>
               <td>${flightNumber}</td>
               <td>${airline}</td>
-              <td>${origin}</td>
+              <td>${from}</td>
+              <td>${to}</td>
               <td>${date}</td>
               <td>${time}</td>
               <td>${status}</td>
             </tr>`;
         });
 
-        if (commercialFlights.length === 0) {
-          table.innerHTML += `<tr><td colspan="6">No commercial flights found.</td></tr>`;
+        if (validFlights.length === 0) {
+          table.innerHTML += `<tr><td colspan="7">No valid flights found.</td></tr>`;
         }
       })
       .catch(error => {
         console.error("API error:", error);
         const table = document.getElementById("flightTable");
-        table.innerHTML += `<tr><td colspan="6">Error loading flight data</td></tr>`;
+        table.innerHTML += `<tr><td colspan="7">Error loading flight data</td></tr>`;
       });
   </script>
 </body>
