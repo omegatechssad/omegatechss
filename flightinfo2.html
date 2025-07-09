@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PLS Arrivals & Departures</title>
+  <title>PLS Airport - Arrivals & Departures</title>
   <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="300"> <!-- Auto-refresh every 5 mins -->
+  <meta http-equiv="refresh" content="300"> <!-- Refresh every 5 mins -->
   <style>
     body {
       background-color: #000;
@@ -17,7 +17,7 @@
       margin-bottom: 10px;
     }
     h2 {
-      font-size: 1.5em;
+      font-size: 1.8em;
       margin-top: 40px;
       border-bottom: 2px solid white;
       padding-bottom: 5px;
@@ -28,7 +28,7 @@
       margin-top: 10px;
     }
     th, td {
-      border: 1px solid #555;
+      border: 1px solid #444;
       padding: 12px 10px;
       font-size: 1.2em;
       text-align: center;
@@ -42,7 +42,7 @@
   </style>
 </head>
 <body>
-  <h1>PLS Airport - Arrivals & Departures</h1>
+  <h1>PLS Airport – Flight Status</h1>
 
   <h2>Departures</h2>
   <table id="departureTable">
@@ -83,7 +83,27 @@
           return;
         }
 
-        // Filter for valid commercial flights
+        // Clear existing rows except header
+        depTable.innerHTML = `
+          <tr>
+            <th>Flight</th>
+            <th>Airline</th>
+            <th>To</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Status</th>
+          </tr>`;
+        arrTable.innerHTML = `
+          <tr>
+            <th>Flight</th>
+            <th>Airline</th>
+            <th>From</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Status</th>
+          </tr>`;
+
+        // Filter valid commercial flights
         const validFlights = data.filter(flight =>
           flight.flight?.iataNumber &&
           flight.airline?.name &&
@@ -92,49 +112,58 @@
           (flight.departure?.scheduledTime || flight.arrival?.scheduledTime)
         );
 
-        // Split into departures and arrivals
         const departures = validFlights.filter(f => f.departure.iataCode === "PLS");
         const arrivals = validFlights.filter(f => f.arrival.iataCode === "PLS");
 
-        // Sort by scheduled time
         departures.sort((a, b) => new Date(a.departure.scheduledTime) - new Date(b.departure.scheduledTime));
-        arrivals.sort((a, b) => new Date(a.arrival.scheduledTime) - new Date(b.arrival.scheduledTime));
+        arrivals.sort((a, b) => new Date(b.arrival.scheduledTime) - new Date(a.arrival.scheduledTime));
 
-        // Display departures
         departures.forEach(flight => {
-          const scheduled = new Date(flight.departure.scheduledTime);
-          const time = scheduled.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          const date = scheduled.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+          const flightNum = flight.flight.iataNumber;
+          const airline = flight.airline.name;
+          const to = flight.arrival.iataCode;
+          const timeObj = new Date(flight.departure.scheduledTime);
+          const date = timeObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+          const time = timeObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+          const status = flight.status || "Unknown";
 
           depTable.innerHTML += `
             <tr>
-              <td>${flight.flight.iataNumber}</td>
-              <td>${flight.airline.name}</td>
-              <td>${flight.arrival.iataCode}</td>
+              <td>${flightNum}</td>
+              <td>${airline}</td>
+              <td>${to}</td>
               <td>${date}</td>
               <td>${time}</td>
-              <td>${flight.status || "Unknown"}</td>
-            </tr>
-          `;
+              <td>${status}</td>
+            </tr>`;
         });
 
-        // Display arrivals
         arrivals.forEach(flight => {
-          const scheduled = new Date(flight.arrival.scheduledTime);
-          const time = scheduled.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          const date = scheduled.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+          const flightNum = flight.flight.iataNumber;
+          const airline = flight.airline.name;
+          const from = flight.departure.iataCode;
+          const timeObj = new Date(flight.arrival.scheduledTime);
+          const date = timeObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+          const time = timeObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+          const status = flight.status || "Unknown";
 
           arrTable.innerHTML += `
             <tr>
-              <td>${flight.flight.iataNumber}</td>
-              <td>${flight.airline.name}</td>
-              <td>${flight.departure.iataCode}</td>
+              <td>${flightNum}</td>
+              <td>${airline}</td>
+              <td>${from}</td>
               <td>${date}</td>
               <td>${time}</td>
-              <td>${flight.status || "Unknown"}</td>
-            </tr>
-          `;
+              <td>${status}</td>
+            </tr>`;
         });
+
+        if (departures.length === 0) {
+          depTable.innerHTML += `<tr><td colspan="6">No departures found.</td></tr>`;
+        }
+        if (arrivals.length === 0) {
+          arrTable.innerHTML += `<tr><td colspan="6">No arrivals found.</td></tr>`;
+        }
       })
       .catch(err => {
         console.error("API error", err);
