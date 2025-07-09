@@ -56,11 +56,16 @@
           return;
         }
 
-        data.slice(0, 10).forEach(flight => {
+        // Sort by arrival scheduled time ascending
+        data.sort((a, b) => new Date(a.arrival.scheduledTime) - new Date(b.arrival.scheduledTime));
+
+        data.forEach(flight => {
           const flightNumber = flight.flight?.iataNumber || "N/A";
           const airline = flight.airline?.name || "N/A";
           const origin = flight.departure?.iataCode || "N/A";
-          const scheduled = new Date(flight.arrival?.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || "N/A";
+          const scheduled = flight.arrival?.scheduledTime
+            ? new Date(flight.arrival.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : "N/A";
           const status = flight.status || "Unknown";
 
           table.innerHTML += `
