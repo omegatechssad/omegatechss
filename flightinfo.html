@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PLS Flight Arrivals</title>
+  <title>PLS Commercial Flight Arrivals</title>
   <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="300"> <!-- Auto-refresh every 5 minutes -->
+  <meta http-equiv="refresh" content="300"> <!-- Refresh every 5 minutes -->
   <style>
     body {
       background-color: black;
@@ -32,7 +32,7 @@
   </style>
 </head>
 <body>
-  <h1>PLS Flight Arrivals</h1>
+  <h1>PLS Commercial Flight Arrivals</h1>
   <table id="flightTable">
     <tr>
       <th>Flight</th>
@@ -44,9 +44,7 @@
   </table>
 
   <script>
-    const apiKey = "e156f3-5ad117";
-    const baseUrl = "https://aviation-edge.com/v2/public/timetable?iataCode=PLS&type=arrival";
-    const apiUrl = `${baseUrl}&key=${apiKey}`;
+    const apiUrl = "https://aviation-edge.com/v2/public/timetable?iataCode=PLS&type=arrival&key=e156f3-5ad117";
 
     fetch(apiUrl)
       .then(response => response.json())
@@ -58,16 +56,38 @@
           return;
         }
 
-        // Sort by arrival scheduled time ascending
-        data.sort((a, b) => new Date(a.arrival.scheduledTime) - new Date(b.arrival.scheduledTime));
+        // Clear existing rows (except header)
+        table.innerHTML = `
+          <tr>
+            <th>Flight</th>
+            <th>Airline</th>
+            <th>Origin</th>
+            <th>Scheduled</th>
+            <th>Status</th>
+          </tr>`;
 
-        data.forEach(flight => {
-          const flightNumber = flight.flight?.iataNumber || "N/A";
-          const airline = flight.airline?.name || "N/A";
-          const origin = flight.departure?.iataCode || "N/A";
-          const scheduled = flight.arrival?.scheduledTime
-            ? new Date(flight.arrival.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : "N/A";
+        // Filter out incomplete or non-commercial data
+        const commercialFlights = data.filter(flight =>
+          flight.airline?.name &&
+          flight.flight?.iataNumber &&
+          flight.departure?.iataCode &&
+          flight.arrival?.scheduledTime
+        );
+
+        // Sort by scheduled arrival time (ascending)
+        commercialFlights.sort((a, b) =>
+          new Date(a.arrival.scheduledTime) - new Date(b.arrival.scheduledTime)
+        );
+
+        // Populate table
+        commercialFlights.forEach(flight => {
+          const flightNumber = flight.flight.iataNumber;
+          const airline = flight.airline.name;
+          const origin = flight.departure.iataCode;
+          const scheduled = new Date(flight.arrival.scheduledTime).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit'
+          });
           const status = flight.status || "Unknown";
 
           table.innerHTML += `
@@ -77,9 +97,12 @@
               <td>${origin}</td>
               <td>${scheduled}</td>
               <td>${status}</td>
-            </tr>
-          `;
+            </tr>`;
         });
+
+        if (commercialFlights.length === 0) {
+          table.innerHTML += `<tr><td colspan="5">No commercial flights found.</td></tr>`;
+        }
       })
       .catch(error => {
         console.error("API error:", error);
