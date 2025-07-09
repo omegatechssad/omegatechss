@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PLS Flight Arrivals</title>
+  <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="300"> <!-- Auto-refresh every 5 minutes -->
+  <style>
+    body {
+      background-color: black;
+      color: white;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 2em;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid white;
+      padding: 10px;
+      text-align: left;
+      font-size: 1em;
+    }
+    th {
+      background-color: #333;
+    }
+  </style>
+</head>
+<body>
+  <h1>PLS Flight Arrivals</h1>
+  <table id="flightTable">
+    <tr>
+      <th>Flight</th>
+      <th>Airline</th>
+      <th>Origin</th>
+      <th>Scheduled</th>
+      <th>Status</th>
+    </tr>
+  </table>
+
+  <script>
+    const apiUrl = "https://aviation-edge.com/v2/public/timetable?iataCode=PLS&type=arrival&key=e156f3-5ad117";
+
+    fetch(apiUrl)
+      .then(response => response.json())
+      .then(data => {
+        const table = document.getElementById("flightTable");
+
+        if (!Array.isArray(data)) {
+          table.innerHTML += `<tr><td colspan="5">Error: Invalid API response</td></tr>`;
+          return;
+        }
+
+        data.slice(0, 10).forEach(flight => {
+          const flightNumber = flight.flight?.iataNumber || "N/A";
+          const airline = flight.airline?.name || "N/A";
+          const origin = flight.departure?.iataCode || "N/A";
+          const scheduled = new Date(flight.arrival?.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || "N/A";
+          const status = flight.status || "Unknown";
+
+          table.innerHTML += `
+            <tr>
+              <td>${flightNumber}</td>
+              <td>${airline}</td>
+              <td>${origin}</td>
+              <td>${scheduled}</td>
+              <td>${status}</td>
+            </tr>
+          `;
+        });
+      })
+      .catch(error => {
+        console.error("API error:", error);
+        const table = document.getElementById("flightTable");
+        table.innerHTML += `<tr><td colspan="5">Error loading flight data</td></tr>`;
+      });
+  </script>
+</body>
+</html>
