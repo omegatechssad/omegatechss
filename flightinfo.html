@@ -38,7 +38,8 @@
       <th>Flight</th>
       <th>Airline</th>
       <th>Origin</th>
-      <th>Scheduled</th>
+      <th>Date</th>
+      <th>Time</th>
       <th>Status</th>
     </tr>
   </table>
@@ -52,21 +53,22 @@
         const table = document.getElementById("flightTable");
 
         if (!Array.isArray(data)) {
-          table.innerHTML += `<tr><td colspan="5">Error: Invalid API response</td></tr>`;
+          table.innerHTML += `<tr><td colspan="6">Error: Invalid API response</td></tr>`;
           return;
         }
 
-        // Clear existing rows (except header)
+        // Clear existing rows (except headers)
         table.innerHTML = `
           <tr>
             <th>Flight</th>
             <th>Airline</th>
             <th>Origin</th>
-            <th>Scheduled</th>
+            <th>Date</th>
+            <th>Time</th>
             <th>Status</th>
           </tr>`;
 
-        // Filter out incomplete or non-commercial data
+        // Filter only valid commercial flights
         const commercialFlights = data.filter(flight =>
           flight.airline?.name &&
           flight.flight?.iataNumber &&
@@ -74,20 +76,21 @@
           flight.arrival?.scheduledTime
         );
 
-        // Sort by scheduled arrival time (ascending)
+        // Sort by scheduled arrival time
         commercialFlights.sort((a, b) =>
           new Date(a.arrival.scheduledTime) - new Date(b.arrival.scheduledTime)
         );
 
-        // Populate table
+        // Populate the table
         commercialFlights.forEach(flight => {
           const flightNumber = flight.flight.iataNumber;
           const airline = flight.airline.name;
           const origin = flight.departure.iataCode;
-          const scheduled = new Date(flight.arrival.scheduledTime).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit'
-          });
+
+          const scheduledDate = new Date(flight.arrival.scheduledTime);
+          const date = scheduledDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+          const time = scheduledDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
           const status = flight.status || "Unknown";
 
           table.innerHTML += `
@@ -95,19 +98,20 @@
               <td>${flightNumber}</td>
               <td>${airline}</td>
               <td>${origin}</td>
-              <td>${scheduled}</td>
+              <td>${date}</td>
+              <td>${time}</td>
               <td>${status}</td>
             </tr>`;
         });
 
         if (commercialFlights.length === 0) {
-          table.innerHTML += `<tr><td colspan="5">No commercial flights found.</td></tr>`;
+          table.innerHTML += `<tr><td colspan="6">No commercial flights found.</td></tr>`;
         }
       })
       .catch(error => {
         console.error("API error:", error);
         const table = document.getElementById("flightTable");
-        table.innerHTML += `<tr><td colspan="5">Error loading flight data</td></tr>`;
+        table.innerHTML += `<tr><td colspan="6">Error loading flight data</td></tr>`;
       });
   </script>
 </body>
