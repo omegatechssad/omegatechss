@@ -6,39 +6,48 @@
   <meta http-equiv="refresh" content="300"> <!-- Auto-refresh every 5 minutes -->
   <style>
     body {
-      background-color: black;
-      color: white;
-      font-family: Arial, sans-serif;
+      background-color: #000;
+      color: #fff;
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0;
       padding: 20px;
     }
     h1 {
       text-align: center;
-      font-size: 2em;
+      font-size: 2.5em;
+      margin-bottom: 10px;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 20px;
     }
     th, td {
-      border: 1px solid white;
-      padding: 10px;
-      text-align: left;
-      font-size: 1em;
+      padding: 16px;
+      font-size: 1.5em;
+      text-align: center;
+      border-bottom: 1px solid #333;
     }
     th {
-      background-color: #333;
+      background-color: #222;
+    }
+    tr:nth-child(even) {
+      background-color: #111;
+    }
+    img.airline-logo {
+      height: 30px;
+      vertical-align: middle;
+      margin-right: 10px;
     }
   </style>
 </head>
 <body>
-  <h1>PLS Flight Arrivals</h1>
+  <h1>Providenciales (PLS) Flight Arrivals</h1>
   <table id="flightTable">
     <tr>
-      <th>Flight</th>
       <th>Airline</th>
-      <th>Origin</th>
-      <th>Scheduled</th>
+      <th>Flight</th>
+      <th>From</th>
+      <th>Time</th>
       <th>Status</th>
     </tr>
   </table>
@@ -58,7 +67,6 @@
         const table = document.getElementById("flightTable");
         console.log("API raw response:", data);
 
-        // Validate that the response is an array
         if (!Array.isArray(data)) {
           const errorText = typeof data === "object" ? JSON.stringify(data) : "Unexpected data format.";
           table.innerHTML += `<tr><td colspan="5">Invalid API response: ${errorText}</td></tr>`;
@@ -70,7 +78,7 @@
           return;
         }
 
-        // Sort flights by scheduled arrival time
+        // Sort by arrival scheduled time
         data.sort((a, b) =>
           new Date(a.arrival?.scheduledTime || 0) - new Date(b.arrival?.scheduledTime || 0)
         );
@@ -78,16 +86,22 @@
         data.forEach(flight => {
           const flightNumber = flight.flight?.iataNumber || "N/A";
           const airline = flight.airline?.name || "N/A";
+          const airlineCode = flight.airline?.iataCode || "";
           const origin = flight.departure?.iataCode || "N/A";
           const scheduled = flight.arrival?.scheduledTime
             ? new Date(flight.arrival.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             : "N/A";
           const status = flight.status || "Unknown";
 
+          // Optional airline logo from AirHex (replace with your own source if needed)
+          const logoUrl = airlineCode
+            ? `https://content.airhex.com/content/logos/airlines_${airlineCode}_200_100_s.png`
+            : "";
+
           table.innerHTML += `
             <tr>
+              <td>${logoUrl ? `<img src="${logoUrl}" alt="${airlineCode}" class="airline-logo">` : ""}${airline}</td>
               <td>${flightNumber}</td>
-              <td>${airline}</td>
               <td>${origin}</td>
               <td>${scheduled}</td>
               <td>${status}</td>
