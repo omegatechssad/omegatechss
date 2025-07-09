@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PLS Arrivals & Departures</title>
+  <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="300"> <!-- Auto-refresh every 5 mins -->
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: "Segoe UI", sans-serif;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 2.5em;
+      margin-bottom: 10px;
+    }
+    h2 {
+      font-size: 1.5em;
+      margin-top: 40px;
+      border-bottom: 2px solid white;
+      padding-bottom: 5px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #555;
+      padding: 12px 10px;
+      font-size: 1.2em;
+      text-align: center;
+    }
+    th {
+      background-color: #222;
+    }
+    tr:nth-child(even) {
+      background-color: #111;
+    }
+  </style>
+</head>
+<body>
+  <h1>PLS Airport - Arrivals & Departures</h1>
+
+  <h2>Departures</h2>
+  <table id="departureTable">
+    <tr>
+      <th>Flight</th>
+      <th>Airline</th>
+      <th>To</th>
+      <th>Date</th>
+      <th>Time</th>
+      <th>Status</th>
+    </tr>
+  </table>
+
+  <h2>Arrivals</h2>
+  <table id="arrivalTable">
+    <tr>
+      <th>Flight</th>
+      <th>Airline</th>
+      <th>From</th>
+      <th>Date</th>
+      <th>Time</th>
+      <th>Status</th>
+    </tr>
+  </table>
+
+  <script>
+    const apiUrl = "https://aviation-edge.com/v2/public/flights?depIata=PLS&arrIata=PLS&key=e156f3-5ad117";
+
+    fetch(apiUrl)
+      .then(response => response.json())
+      .then(data => {
+        const depTable = document.getElementById("departureTable");
+        const arrTable = document.getElementById("arrivalTable");
+
+        if (!Array.isArray(data)) {
+          depTable.innerHTML += `<tr><td colspan="6">Error: Invalid API response</td></tr>`;
+          arrTable.innerHTML += `<tr><td colspan="6">Error: Invalid API response</td></tr>`;
+          return;
+        }
+
+        // Filter for valid commercial flights
+        const validFlights = data.filter(flight =>
+          flight.flight?.iataNumber &&
+          flight.airline?.name &&
+          flight.departure?.iataCode &&
+          flight.arrival?.iataCode &&
+          (flight.departure?.scheduledTime || flight.arrival?.scheduledTime)
+        );
+
+        // Split into departures and arrivals
+        const departures = validFlights.filter(f => f.departure.iataCode === "PLS");
+        const arrivals = validFlights.filter(f => f.arrival.iataCode === "PLS");
+
+        // Sort by scheduled time
+        departures.sort((a, b) => new Date(a.departure.scheduledTime) - new Date(b.departure.scheduledTime));
+        arrivals.sort((a, b) => new Date(a.arrival.scheduledTime) - new Date(b.arrival.scheduledTime));
+
+        // Display departures
+        departures.forEach(flight => {
+          const scheduled = new Date(flight.departure.scheduledTime);
+          const time = scheduled.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const date = scheduled.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
+          depTable.innerHTML += `
+            <tr>
+              <td>${flight.flight.iataNumber}</td>
+              <td>${flight.airline.name}</td>
+              <td>${flight.arrival.iataCode}</td>
+              <td>${date}</td>
+              <td>${time}</td>
+              <td>${flight.status || "Unknown"}</td>
+            </tr>
+          `;
+        });
+
+        // Display arrivals
+        arrivals.forEach(flight => {
+          const scheduled = new Date(flight.arrival.scheduledTime);
+          const time = scheduled.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const date = scheduled.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
+          arrTable.innerHTML += `
+            <tr>
+              <td>${flight.flight.iataNumber}</td>
+              <td>${flight.airline.name}</td>
+              <td>${flight.departure.iataCode}</td>
+              <td>${date}</td>
+              <td>${time}</td>
+              <td>${flight.status || "Unknown"}</td>
+            </tr>
+          `;
+        });
+      })
+      .catch(err => {
+        console.error("API error", err);
+        document.getElementById("departureTable").innerHTML += `<tr><td colspan="6">API error</td></tr>`;
+        document.getElementById("arrivalTable").innerHTML += `<tr><td colspan="6">API error</td></tr>`;
+      });
+  </script>
+</body>
+</html>
