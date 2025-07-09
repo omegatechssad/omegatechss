@@ -1,174 +1,103 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PLS Airport - Arrivals & Departures</title>
+  <title>PLS Flight Arrivals</title>
   <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="300"> <!-- Refresh every 5 mins -->
+  <meta http-equiv="refresh" content="300"> <!-- Auto-refresh every 5 minutes -->
   <style>
     body {
-      background-color: #000;
-      color: #fff;
-      font-family: "Segoe UI", sans-serif;
+      background-color: black;
+      color: white;
+      font-family: Arial, sans-serif;
       padding: 20px;
     }
     h1 {
       text-align: center;
-      font-size: 2.5em;
-      margin-bottom: 10px;
-    }
-    h2 {
-      font-size: 1.8em;
-      margin-top: 40px;
-      border-bottom: 2px solid white;
-      padding-bottom: 5px;
+      font-size: 2em;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
+      margin-top: 20px;
     }
     th, td {
-      border: 1px solid #444;
-      padding: 12px 10px;
-      font-size: 1.2em;
-      text-align: center;
+      border: 1px solid white;
+      padding: 10px;
+      text-align: left;
+      font-size: 1em;
     }
     th {
-      background-color: #222;
-    }
-    tr:nth-child(even) {
-      background-color: #111;
+      background-color: #333;
     }
   </style>
 </head>
 <body>
-  <h1>PLS Airport – Flight Status</h1>
-
-  <h2>Departures</h2>
-  <table id="departureTable">
+  <h1>PLS Flight Arrivals</h1>
+  <table id="flightTable">
     <tr>
       <th>Flight</th>
       <th>Airline</th>
-      <th>To</th>
-      <th>Date</th>
-      <th>Time</th>
-      <th>Status</th>
-    </tr>
-  </table>
-
-  <h2>Arrivals</h2>
-  <table id="arrivalTable">
-    <tr>
-      <th>Flight</th>
-      <th>Airline</th>
-      <th>From</th>
-      <th>Date</th>
-      <th>Time</th>
+      <th>Origin</th>
+      <th>Scheduled</th>
       <th>Status</th>
     </tr>
   </table>
 
   <script>
-    const apiUrl = "https://aviation-edge.com/v2/public/flights?depIata=PLS&arrIata=PLS&key=e156f3-5ad117";
+    const apiKey = "e156f3-5ad117";
+    const apiUrl = `https://aviation-edge.com/v2/public/timetable?iataCode=PLS&type=arrival&key=${apiKey}`;
 
     fetch(apiUrl)
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP Error: ${response.status}`);
+        }
+        return response.json();
+      })
       .then(data => {
-        const depTable = document.getElementById("departureTable");
-        const arrTable = document.getElementById("arrivalTable");
+        const table = document.getElementById("flightTable");
+        console.log("API raw response:", data);
 
+        // Validate that the response is an array
         if (!Array.isArray(data)) {
-          depTable.innerHTML += `<tr><td colspan="6">Error: Invalid API response</td></tr>`;
-          arrTable.innerHTML += `<tr><td colspan="6">Error: Invalid API response</td></tr>`;
+          const errorText = typeof data === "object" ? JSON.stringify(data) : "Unexpected data format.";
+          table.innerHTML += `<tr><td colspan="5">Invalid API response: ${errorText}</td></tr>`;
           return;
         }
 
-        // Clear existing rows except header
-        depTable.innerHTML = `
-          <tr>
-            <th>Flight</th>
-            <th>Airline</th>
-            <th>To</th>
-            <th>Date</th>
-            <th>Time</th>
-            <th>Status</th>
-          </tr>`;
-        arrTable.innerHTML = `
-          <tr>
-            <th>Flight</th>
-            <th>Airline</th>
-            <th>From</th>
-            <th>Date</th>
-            <th>Time</th>
-            <th>Status</th>
-          </tr>`;
+        if (data.length === 0) {
+          table.innerHTML += `<tr><td colspan="5">No arrivals found.</td></tr>`;
+          return;
+        }
 
-        // Filter valid commercial flights
-        const validFlights = data.filter(flight =>
-          flight.flight?.iataNumber &&
-          flight.airline?.name &&
-          flight.departure?.iataCode &&
-          flight.arrival?.iataCode &&
-          (flight.departure?.scheduledTime || flight.arrival?.scheduledTime)
+        // Sort flights by scheduled arrival time
+        data.sort((a, b) =>
+          new Date(a.arrival?.scheduledTime || 0) - new Date(b.arrival?.scheduledTime || 0)
         );
 
-        const departures = validFlights.filter(f => f.departure.iataCode === "PLS");
-        const arrivals = validFlights.filter(f => f.arrival.iataCode === "PLS");
-
-        departures.sort((a, b) => new Date(a.departure.scheduledTime) - new Date(b.departure.scheduledTime));
-        arrivals.sort((a, b) => new Date(b.arrival.scheduledTime) - new Date(a.arrival.scheduledTime));
-
-        departures.forEach(flight => {
-          const flightNum = flight.flight.iataNumber;
-          const airline = flight.airline.name;
-          const to = flight.arrival.iataCode;
-          const timeObj = new Date(flight.departure.scheduledTime);
-          const date = timeObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-          const time = timeObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        data.forEach(flight => {
+          const flightNumber = flight.flight?.iataNumber || "N/A";
+          const airline = flight.airline?.name || "N/A";
+          const origin = flight.departure?.iataCode || "N/A";
+          const scheduled = flight.arrival?.scheduledTime
+            ? new Date(flight.arrival.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : "N/A";
           const status = flight.status || "Unknown";
 
-          depTable.innerHTML += `
+          table.innerHTML += `
             <tr>
-              <td>${flightNum}</td>
+              <td>${flightNumber}</td>
               <td>${airline}</td>
-              <td>${to}</td>
-              <td>${date}</td>
-              <td>${time}</td>
+              <td>${origin}</td>
+              <td>${scheduled}</td>
               <td>${status}</td>
             </tr>`;
         });
-
-        arrivals.forEach(flight => {
-          const flightNum = flight.flight.iataNumber;
-          const airline = flight.airline.name;
-          const from = flight.departure.iataCode;
-          const timeObj = new Date(flight.arrival.scheduledTime);
-          const date = timeObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-          const time = timeObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-          const status = flight.status || "Unknown";
-
-          arrTable.innerHTML += `
-            <tr>
-              <td>${flightNum}</td>
-              <td>${airline}</td>
-              <td>${from}</td>
-              <td>${date}</td>
-              <td>${time}</td>
-              <td>${status}</td>
-            </tr>`;
-        });
-
-        if (departures.length === 0) {
-          depTable.innerHTML += `<tr><td colspan="6">No departures found.</td></tr>`;
-        }
-        if (arrivals.length === 0) {
-          arrTable.innerHTML += `<tr><td colspan="6">No arrivals found.</td></tr>`;
-        }
       })
-      .catch(err => {
-        console.error("API error", err);
-        document.getElementById("departureTable").innerHTML += `<tr><td colspan="6">API error</td></tr>`;
-        document.getElementById("arrivalTable").innerHTML += `<tr><td colspan="6">API error</td></tr>`;
+      .catch(error => {
+        console.error("Fetch error:", error);
+        const table = document.getElementById("flightTable");
+        table.innerHTML += `<tr><td colspan="5">Error loading flight data: ${error.message}</td></tr>`;
       });
   </script>
 </body>
