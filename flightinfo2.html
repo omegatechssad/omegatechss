@@ -3,7 +3,7 @@
 <head>
   <title>PLS Flight Arrivals</title>
   <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="300"> <!-- Auto-refresh every 5 minutes -->
+  <meta http-equiv="refresh" content="300"> <!-- Refresh every 5 minutes -->
   <style>
     body {
       background-color: #000;
@@ -15,7 +15,7 @@
     h1 {
       text-align: center;
       font-size: 2.5em;
-      margin-bottom: 10px;
+      margin-bottom: 20px;
     }
     table {
       width: 100%;
@@ -33,10 +33,10 @@
     tr:nth-child(even) {
       background-color: #111;
     }
-    img.airline-logo {
-      height: 30px;
-      vertical-align: middle;
-      margin-right: 10px;
+    td img.airline-logo {
+      height: 40px;
+      display: block;
+      margin: 0 auto;
     }
   </style>
 </head>
@@ -44,6 +44,7 @@
   <h1>Providenciales (PLS) Flight Arrivals</h1>
   <table id="flightTable">
     <tr>
+      <th>Logo</th>
       <th>Airline</th>
       <th>Flight</th>
       <th>From</th>
@@ -69,16 +70,16 @@
 
         if (!Array.isArray(data)) {
           const errorText = typeof data === "object" ? JSON.stringify(data) : "Unexpected data format.";
-          table.innerHTML += `<tr><td colspan="5">Invalid API response: ${errorText}</td></tr>`;
+          table.innerHTML += `<tr><td colspan="6">Invalid API response: ${errorText}</td></tr>`;
           return;
         }
 
         if (data.length === 0) {
-          table.innerHTML += `<tr><td colspan="5">No arrivals found.</td></tr>`;
+          table.innerHTML += `<tr><td colspan="6">No arrivals found.</td></tr>`;
           return;
         }
 
-        // Sort by arrival scheduled time
+        // Sort by scheduled arrival time
         data.sort((a, b) =>
           new Date(a.arrival?.scheduledTime || 0) - new Date(b.arrival?.scheduledTime || 0)
         );
@@ -93,14 +94,15 @@
             : "N/A";
           const status = flight.status || "Unknown";
 
-          // Optional airline logo from AirHex (replace with your own source if needed)
+          // Logo source (AirHex)
           const logoUrl = airlineCode
             ? `https://content.airhex.com/content/logos/airlines_${airlineCode}_200_100_s.png`
             : "";
 
           table.innerHTML += `
             <tr>
-              <td>${logoUrl ? `<img src="${logoUrl}" alt="${airlineCode}" class="airline-logo">` : ""}${airline}</td>
+              <td>${logoUrl ? `<img src="${logoUrl}" alt="${airlineCode}" class="airline-logo">` : ""}</td>
+              <td>${airline}</td>
               <td>${flightNumber}</td>
               <td>${origin}</td>
               <td>${scheduled}</td>
@@ -111,7 +113,7 @@
       .catch(error => {
         console.error("Fetch error:", error);
         const table = document.getElementById("flightTable");
-        table.innerHTML += `<tr><td colspan="5">Error loading flight data: ${error.message}</td></tr>`;
+        table.innerHTML += `<tr><td colspan="6">Error loading flight data: ${error.message}</td></tr>`;
       });
   </script>
 </body>
