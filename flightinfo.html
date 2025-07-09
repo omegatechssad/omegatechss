@@ -44,7 +44,9 @@
   </table>
 
   <script>
-    const apiUrl = "https://aviation-edge.com/v2/public/timetable?iataCode=PLS&type=arrival&key=e156f3-5ad117";
+    const apiKey = "e156f3-5ad117";
+    const baseUrl = "https://aviation-edge.com/v2/public/timetable?iataCode=PLS&type=arrival";
+    const apiUrl = `${baseUrl}&key=${apiKey}`;
 
     fetch(apiUrl)
       .then(response => response.json())
