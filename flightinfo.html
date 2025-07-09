@@ -1,123 +1,120 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Flight Information - PLS</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f5f7fa;
-            padding: 20px;
-            color: #333;
-        }
-        h2 {
-            text-align: center;
-            color: #0066cc;
-        }
-        .flight-info {
-            margin: 10px 0;
-            padding: 15px;
-            background: #fff;
-            border-left: 5px solid #0066cc;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .flight-number {
-            font-weight: bold;
-            font-size: 1.2em;
-            color: #0066cc;
-        }
-        .flight-detail {
-            margin-top: 5px;
-        }
-        .error, .loading {
-            text-align: center;
-            margin-top: 20px;
-            font-weight: bold;
-            color: red;
-        }
-    </style>
+  <title>PLS All Flights (Arrivals & Departures)</title>
+  <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="300"> <!-- Refresh every 5 minutes -->
+  <style>
+    body {
+      background-color: black;
+      color: white;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 2em;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid white;
+      padding: 10px;
+      text-align: left;
+      font-size: 1em;
+    }
+    th {
+      background-color: #333;
+    }
+  </style>
 </head>
 <body>
-    <div id="flight-display">
-        <h2>PLS All Flights (Arrivals & Departures)</h2>
-        <div id="flights-container" class="loading">Loading flight data...</div>
-    </div>
+  <h1>PLS All Flights (Arrivals & Departures)</h1>
+  <table id="flightTable">
+    <tr>
+      <th>Flight</th>
+      <th>Airline</th>
+      <th>From</th>
+      <th>To</th>
+      <th>Date</th>
+      <th>Time</th>
+      <th>Status</th>
+    </tr>
+  </table>
 
-    <script>
-        const apiKey = "e156f3-5ad117";
-        const apiUrl = `https://aviation-edge.com/v2/public/flights?depIata=PLS&arrIata=PLS&key=${apiKey}`;
+  <script>
+    const apiUrl = "https://aviation-edge.com/v2/public/flights?depIata=PLS&arrIata=PLS&key=e156f3-5ad117";
 
-        async function fetchAndDisplayFlights() {
-            const container = document.getElementById('flights-container');
-            container.innerHTML = '<div class="loading">Loading flight data...</div>';
+    fetch(apiUrl)
+      .then(response => response.json())
+      .then(data => {
+        const table = document.getElementById("flightTable");
 
-            try {
-                const response = await fetch(apiUrl);
-                const data = await response.json();
-
-                if (!Array.isArray(data)) {
-                    container.innerHTML = '<div class="error">Invalid API response</div>';
-                    return;
-                }
-
-                const validFlights = data.filter(f =>
-                    f.flight?.iataNumber &&
-                    f.airline?.name &&
-                    f.departure?.iataCode &&
-                    f.arrival?.iataCode &&
-                    (f.departure?.scheduledTime || f.arrival?.scheduledTime)
-                );
-
-                validFlights.sort((a, b) => {
-                    const timeA = new Date(a.departure?.scheduledTime || a.arrival?.scheduledTime || 0);
-                    const timeB = new Date(b.departure?.scheduledTime || b.arrival?.scheduledTime || 0);
-                    return timeA - timeB;
-                });
-
-                container.innerHTML = '';
-
-                if (validFlights.length === 0) {
-                    container.innerHTML = '<div class="error">No flights found.</div>';
-                    return;
-                }
-
-                validFlights.forEach(flight => {
-                    const flightNumber = flight.flight.iataNumber;
-                    const airline = flight.airline.name;
-                    const from = flight.departure.iataCode;
-                    const to = flight.arrival.iataCode;
-
-                    const time = new Date(flight.departure?.scheduledTime || flight.arrival?.scheduledTime);
-                    const dateStr = time.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-                    const timeStr = time.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-
-                    const status = flight.status || "Unknown";
-                    const type = from === "PLS" ? "Departure" : "Arrival";
-
-                    const div = document.createElement("div");
-                    div.className = "flight-info";
-                    div.innerHTML = `
-                        <div class="flight-number">${flightNumber} (${type})</div>
-                        <div class="flight-detail">${airline}</div>
-                        <div class="flight-detail">${from} → ${to}</div>
-                        <div class="flight-detail">Date: ${dateStr} — Time: ${timeStr}</div>
-                        <div class="flight-detail">Status: ${status}</div>
-                    `;
-                    container.appendChild(div);
-                });
-
-            } catch (error) {
-                console.error("Flight API error:", error);
-                container.innerHTML = '<div class="error">Error loading flight data. Please try again later.</div>';
-            }
+        if (!Array.isArray(data)) {
+          table.innerHTML += `<tr><td colspan="7">Error: Invalid API response</td></tr>`;
+          return;
         }
 
-        // Initial load
-        fetchAndDisplayFlights();
+        // Clear previous rows
+        table.innerHTML = `
+          <tr>
+            <th>Flight</th>
+            <th>Airline</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Status</th>
+          </tr>`;
 
-        // Auto-refresh every 30 seconds
-        setInterval(fetchAndDisplayFlights, 30000);
-    </script>
+        const validFlights = data.filter(flight =>
+          flight.airline?.name &&
+          flight.flight?.iataNumber &&
+          flight.departure?.iataCode &&
+          flight.arrival?.iataCode &&
+          flight.departure?.scheduledTime
+        );
+
+        validFlights.sort((a, b) =>
+          new Date(a.departure.scheduledTime || 0) - new Date(b.departure.scheduledTime || 0)
+        );
+
+        validFlights.forEach(flight => {
+          const flightNumber = flight.flight.iataNumber;
+          const airline = flight.airline.name;
+          const from = flight.departure.iataCode;
+          const to = flight.arrival.iataCode;
+
+          const scheduled = new Date(flight.departure.scheduledTime || flight.arrival.scheduledTime);
+          const date = scheduled.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+          const time = scheduled.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
+          const status = flight.status || "Unknown";
+
+          table.innerHTML += `
+            <tr>
+              <td>${flightNumber}</td>
+              <td>${airline}</td>
+              <td>${from}</td>
+              <td>${to}</td>
+              <td>${date}</td>
+              <td>${time}</td>
+              <td>${status}</td>
+            </tr>`;
+        });
+
+        if (validFlights.length === 0) {
+          table.innerHTML += `<tr><td colspan="7">No valid flights found.</td></tr>`;
+        }
+      })
+      .catch(error => {
+        console.error("API error:", error);
+        const table = document.getElementById("flightTable");
+        table.innerHTML += `<tr><td colspan="7">Error loading flight data</td></tr>`;
+      });
+  </script>
 </body>
 </html>
