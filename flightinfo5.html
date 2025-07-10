@@ -68,14 +68,14 @@
         while (table.rows.length > 1) table.deleteRow(1);
 
         const now = new Date();
-        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-        const fourHoursAhead = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+        const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+        const sixHoursAhead = new Date(now.getTime() + 6 * 60 * 60 * 1000);
 
         const filteredFlights = data.filter(flight => {
           const timeStr = flight.departure?.scheduledTime;
           if (!timeStr) return false;
           const schedTime = new Date(timeStr);
-          return schedTime >= oneHourAgo && schedTime <= fourHoursAhead;
+          return schedTime >= sixHoursAgo && schedTime <= sixHoursAhead;
         });
 
         if (filteredFlights.length === 0) {
