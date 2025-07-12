@@ -17,7 +17,14 @@
     h1 {
       text-align: center;
       font-size: 2em;
-      margin: 20px 0;
+      margin: 20px 0 10px;
+    }
+
+    #currentTime {
+      text-align: center;
+      font-size: 1em;
+      margin-bottom: 20px;
+      color: #ccc;
     }
 
     h2 {
@@ -76,6 +83,7 @@
 </head>
 <body>
   <h1>PLS Airport Departures</h1>
+  <div id="currentTime"></div>
   <div id="flightTables"></div>
 
   <script>
@@ -84,30 +92,12 @@
     const DELAY_THRESHOLD_MINUTES = 15;
 
     const airportMap = {
-      JFK: "New York – JFK",
-      MIA: "Miami – MIA",
-      ATL: "Atlanta – ATL",
-      FLL: "Fort Lauderdale – FLL",
-      DFW: "Dallas – DFW",
-      CLT: "Charlotte – CLT",
-      EWR: "Newark – EWR",
-      YYZ: "Toronto – YYZ",
-      LGA: "New York – LGA",
-      BGI: "Barbados – BGI",
-      KIN: "Kingston – KIN",
-      MBJ: "Montego Bay – MBJ",
-      SJU: "San Juan – SJU",
-      PHL: "Philadelphia – PHL",
-      ORD: "Chicago – ORD",
-      BWI: "Baltimore – BWI",
-      MCO: "Orlando – MCO",
-      CAP: "Cap-Haïtien – CAP",
-      STI: "Santiago – STI",
-      SDQ: "Santo Domingo – SDQ",
-      NAS: "Nassau – NAS",
-      GDT: "Grand Turk – GDT",
-      XSC: "South Caicos – XSC",
-      BOS: "Boston – BOS",
+      JFK: "New York – JFK", MIA: "Miami – MIA", ATL: "Atlanta – ATL", FLL: "Fort Lauderdale – FLL",
+      DFW: "Dallas – DFW", CLT: "Charlotte – CLT", EWR: "Newark – EWR", YYZ: "Toronto – YYZ",
+      LGA: "New York – LGA", BGI: "Barbados – BGI", KIN: "Kingston – KIN", MBJ: "Montego Bay – MBJ",
+      SJU: "San Juan – SJU", PHL: "Philadelphia – PHL", ORD: "Chicago – ORD", BWI: "Baltimore – BWI",
+      MCO: "Orlando – MCO", CAP: "Cap-Haïtien – CAP", STI: "Santiago – STI", SDQ: "Santo Domingo – SDQ",
+      NAS: "Nassau – NAS", GDT: "Grand Turk – GDT", XSC: "South Caicos – XSC", BOS: "Boston – BOS",
       IAH: "Houston – IAH"
     };
 
@@ -136,6 +126,7 @@
 
         const sched = new Date(flight.departure.scheduledTime);
         const est = flight.departure.estimatedTime ? new Date(flight.departure.estimatedTime) : null;
+        const actual = flight.departure.actualTime ? new Date(flight.departure.actualTime) : null;
         const delay = flight.departure?.delay || 0;
 
         const scheduled = sched.toLocaleTimeString('en-US', {
@@ -146,13 +137,12 @@
           ? est.toLocaleTimeString('en-US', {
               hour: '2-digit', minute: '2-digit', timeZone: 'America/Grand_Turk'
             })
-          : "N/A";
+          : scheduled;
 
-        // ✈️ Final Status Logic Based on Rules
         let rawStatus = (flight.status || "").toLowerCase();
         let displayStatus = "", statusColor = "#ccc";
 
-        if (rawStatus === "active") {
+        if (rawStatus === "active" && actual) {
           displayStatus = "Departed";
           statusColor = "#2196f3";
         } else if (est && sched.getTime() !== est.getTime() && delay >= DELAY_THRESHOLD_MINUTES) {
@@ -187,12 +177,24 @@
       return html;
     }
 
+    function updateCurrentTime() {
+      const nowLocal = new Date().toLocaleTimeString('en-US', {
+        timeZone: 'America/Grand_Turk',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      document.getElementById("currentTime").innerText = `Current Local Time: ${nowLocal}`;
+    }
+
     fetch(apiUrl)
       .then(response => {
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
         return response.json();
       })
       .then(data => {
+        updateCurrentTime();
+
         const now = new Date();
         const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
         const sixHoursAhead = new Date(now.getTime() + 6 * 60 * 60 * 1000);
