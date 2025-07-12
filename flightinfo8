@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PLS Airport Departures</title>
+  <meta http-equiv="refresh" content="300" />
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0;
+      padding: 10px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2em;
+      margin: 20px 0;
+    }
+
+    .table-container {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 800px;
+      border-collapse: collapse;
+      margin: 0 auto;
+    }
+
+    th, td {
+      padding: 10px;
+      font-size: 1.1em;
+      text-align: center;
+      border-bottom: 1px solid #333;
+    }
+
+    th {
+      background-color: #222;
+      position: sticky;
+      top: 0;
+    }
+
+    tr:nth-child(even) {
+      background-color: #111;
+    }
+
+    .highlight-delay {
+      background-color: #660000 !important;
+    }
+
+    td img.airline-logo {
+      height: 36px;
+      display: block;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 600px) {
+      th, td {
+        font-size: 1em;
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>PLS Airport Departures</h1>
+  <div class="table-container">
+    <table id="departuresTable">
+      <tr>
+        <th>Logo</th>
+        <th>Airline</th>
+        <th>Flight</th>
+        <th>To</th>
+        <th>Scheduled</th>
+        <th>Estimated</th>
+        <th>Status</th>
+        <th>Delay</th>
+      </tr>
+    </table>
+  </div>
+
+  <script>
+    const apiKey = "e156f3-5ad117";
+    const apiUrl = `https://aviation-edge.com/v2/public/timetable?iataCode=PLS&type=departure&key=${apiKey}`;
+
+    const airportMap = {
+      JFK: "New York – JFK",
+      MIA: "Miami – MIA",
+      ATL: "Atlanta – ATL",
+      FLL: "Fort Lauderdale – FLL",
+      DFW: "Dallas – DFW",
+      CLT: "Charlotte – CLT",
+      EWR: "Newark – EWR",
+      YYZ: "Toronto – YYZ",
+      LGA: "New York – LGA",
+      BGI: "Barbados – BGI",
+      KIN: "Kingston – KIN",
+      MBJ: "Montego Bay – MBJ",
+      SJU: "San Juan – SJU",
+      PHL: "Philadelphia – PHL",
+      ORD: "Chicago – ORD",
+      // Extend this list as needed
+    };
+
+    fetch(apiUrl)
+      .then(response => {
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        return response.json();
+      })
+      .then(data => {
+        const table = document.getElementById("departuresTable");
+        while (table.rows.length > 1) table.deleteRow(1);
+
+        const now = new Date();
+        const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+        const sixHoursAhead = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+
+        const filteredFlights = data.filter(flight => {
+          const schedStr = flight.departure?.scheduledTime;
+          if (!schedStr) return false;
+
+          const schedTime = new Date(schedStr);
+          return schedTime >= sixHoursAgo && schedTime <= sixHoursAhead;
+        });
+
+        if (filteredFlights.length === 0) {
+          table.innerHTML += `<tr><td colspan="8">No departures found in this time window.</td></tr>`;
+          return;
+        }
+
+        filteredFlights.sort((a, b) => (b.departure?.delay || 0) - (a.departure?.delay || 0));
+
+        filteredFlights.forEach(flight => {
+          const flightNumber = flight.flight?.iataNumber || "N/A";
+          const airline = flight.airline?.name || "N/A";
+          const airlineCode = flight.airline?.iataCode || "";
+          const iataCode = flight.arrival?.iataCode || "N/A";
+          const destination = airportMap[iataCode] || iataCode;
+          const delay = flight.departure?.delay || 0;
+
+          const scheduled = flight.departure?.scheduledTime
+            ? new Date(flight.departure.scheduledTime).toLocaleTimeString('en-US', {
+                hour: '2-digit', minute: '2-digit', timeZone: 'America/Grand_Turk'
+              })
+            : "N/A";
+
+          const estimated = flight.departure?.estimatedTime
+            ? new Date(flight.departure.estimatedTime).toLocaleTimeString('en-US', {
+                hour: '2-digit', minute: '2-digit', timeZone: 'America/Grand_Turk'
+              })
+            : "N/A";
+
+          let rawStatus = (flight.status || "").toLowerCase();
+          let displayStatus = "", statusColor = "#ccc";
+
+          switch (rawStatus) {
+            case "scheduled": displayStatus = "On Time"; statusColor = "#4caf50"; break;
+            case "active": displayStatus = "Departed"; statusColor = "#2196f3"; break;
+            case "landed": displayStatus = "Landed"; statusColor = "#9c27b0"; break;
+            case "cancelled": displayStatus = "Cancelled"; statusColor = "#f44336"; break;
+            case "delayed": displayStatus = "Delayed"; statusColor = "#ff9800"; break;
+            case "diverted": displayStatus = "Diverted"; statusColor = "#e91e63"; break;
+            default: displayStatus = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
+          }
+
+          const logoUrl = airlineCode
+            ? `https://content.airhex.com/content/logos/airlines_${airlineCode}_200_100_s.png`
+            : "";
+
+          const rowClass = delay >= 60 ? 'highlight-delay' : '';
+          const delayDisplay = delay >= 1 ? `${delay} min` : "";
+
+          table.innerHTML += `
+            <tr class="${rowClass}">
+              <td>${logoUrl ? `<img src="${logoUrl}" alt="${airlineCode}" class="airline-logo">` : ""}</td>
+              <td>${airline}</td>
+              <td>${flightNumber}</td>
+              <td>${destination}</td>
+              <td>${scheduled}</td>
+              <td>${estimated}</td>
+              <td style="color: ${statusColor}; font-weight: bold;">${displayStatus}</td>
+              <td>${delayDisplay}</td>
+            </tr>`;
+        });
+      })
+      .catch(error => {
+        console.error("Fetch error:", error);
+        const table = document.getElementById("departuresTable");
+        table.innerHTML += `<tr><td colspan="8">Error loading flight data: ${error.message}</td></tr>`;
+      });
+  </script>
+</body>
+</html>
