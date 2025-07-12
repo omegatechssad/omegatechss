@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PLS Flight Departures</title>
+  <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="300"> <!-- Refresh every 5 minutes -->
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 2.5em;
+      margin-bottom: 30px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 12px;
+      font-size: 1.3em;
+      text-align: center;
+      border-bottom: 1px solid #333;
+    }
+    th {
+      background-color: #222;
+    }
+    tr:nth-child(even) {
+      background-color: #111;
+    }
+    .highlight-delay {
+      background-color: #660000 !important;
+    }
+    td img.airline-logo {
+      height: 40px;
+      display: block;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>PLS Flight Departures — Delays 20+ Minutes</h1>
+  <table id="departuresTable">
+    <tr>
+      <th>Logo</th>
+      <th>Airline</th>
+      <th>Flight</th>
+      <th>To</th>
+      <th>Scheduled</th>
+      <th>Estimated</th>
+      <th>Status</th>
+      <th>Delay (min)</th>
+    </tr>
+  </table>
+
+  <script>
+    const apiKey = "e156f3-5ad117";
+    const apiUrl = `https://aviation-edge.com/v2/public/timetable?iataCode=PLS&type=departure&key=${apiKey}`;
+
+    fetch(apiUrl)
+      .then(response => {
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        return response.json();
+      })
+      .then(data => {
+        const table = document.getElementById("departuresTable");
+        while (table.rows.length > 1) table.deleteRow(1);
+
+        const now = new Date();
+        const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+        const sixHoursAhead = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+
+        let filteredFlights = data.filter(flight => {
+          const schedStr = flight.departure?.scheduledTime;
+          const delay = flight.departure?.delay || 0;
+          if (!schedStr) return false;
+
+          const schedTime = new Date(schedStr);
+          return (
+            schedTime >= sixHoursAgo &&
+            schedTime <= sixHoursAhead &&
+            delay >= 20
+          );
+        });
+
+        // Sort by longest delay first
+        filteredFlights.sort((a, b) =>
+          (b.departure?.delay || 0) - (a.departure?.delay || 0)
+        );
+
+        if (filteredFlights.length === 0) {
+          table.innerHTML += `<tr><td colspan="8">No delayed departures in this time window.</td></tr>`;
+          return;
+        }
+
+        filteredFlights.forEach(flight => {
+          const flightNumber = flight.flight?.iataNumber || "N/A";
+          const airline = flight.airline?.name || "N/A";
+          const airlineCode = flight.airline?.iataCode || "";
+          const destination = flight.arrival?.iataCode || "N/A";
+          const delay = flight.departure?.delay || 0;
+
+          const scheduled = flight.departure?.scheduledTime
+            ? new Date(flight.departure.scheduledTime).toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'America/Grand_Turk'
+              })
+            : "N/A";
+
+          const estimated = flight.departure?.estimatedTime
+            ? new Date(flight.departure.estimatedTime).toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'America/Grand_Turk'
+              })
+            : "N/A";
+
+          let rawStatus = (flight.status || "").toLowerCase();
+          let displayStatus = "", statusColor = "#ccc";
+
+          switch (rawStatus) {
+            case "scheduled": displayStatus = "On Time"; statusColor = "#4caf50"; break;
+            case "active": displayStatus = "Departed"; statusColor = "#2196f3"; break;
+            case "landed": displayStatus = "Landed"; statusColor = "#9c27b0"; break;
+            case "cancelled": displayStatus = "Cancelled"; statusColor = "#f44336"; break;
+            case "delayed": displayStatus = "Delayed"; statusColor = "#ff9800"; break;
+            case "diverted": displayStatus = "Diverted"; statusColor = "#e91e63"; break;
+            default: displayStatus = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
+          }
+
+          const logoUrl = airlineCode
+            ? `https://content.airhex.com/content/logos/airlines_${airlineCode}_200_100_s.png`
+            : "";
+
+          const rowClass = delay >= 60 ? 'highlight-delay' : '';
+
+          table.innerHTML += `
+            <tr class="${rowClass}">
+              <td>${logoUrl ? `<img src="${logoUrl}" alt="${airlineCode}" class="airline-logo">` : ""}</td>
+              <td>${airline}</td>
+              <td>${flightNumber}</td>
+              <td>${destination}</td>
+              <td>${scheduled}</td>
+              <td>${estimated}</td>
+              <td style="color: ${statusColor}; font-weight: bold;">${displayStatus}</td>
+              <td>${delay}</td>
+            </tr>`;
+        });
+      })
+      .catch(error => {
+        console.error("Fetch error:", error);
+        const table = document.getElementById("departuresTable");
+        table.innerHTML += `<tr><td colspan="8">Error loading flight data: ${error.message}</td></tr>`;
+      });
+  </script>
+</body>
+</html>
