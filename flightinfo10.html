@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PLS Airport Departures</title>
+  <meta http-equiv="refresh" content="300" />
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0;
+      padding: 10px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2em;
+      margin: 20px 0;
+    }
+
+    h2 {
+      text-align: center;
+      font-size: 1.5em;
+      margin: 30px 0 10px;
+      color: #ffd700;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      margin-bottom: 40px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 800px;
+      border-collapse: collapse;
+      margin: 0 auto;
+    }
+
+    th, td {
+      padding: 10px;
+      font-size: 1.1em;
+      text-align: center;
+      border-bottom: 1px solid #333;
+    }
+
+    th {
+      background-color: #222;
+      position: sticky;
+      top: 0;
+    }
+
+    tr:nth-child(even) {
+      background-color: #111;
+    }
+
+    .highlight-delay {
+      background-color: #660000 !important;
+    }
+
+    td img.airline-logo {
+      height: 36px;
+      display: block;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 600px) {
+      th, td {
+        font-size: 1em;
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>PLS Airport Departures</h1>
+  <div id="flightTables"></div>
+
+  <script>
+    const apiKey = "e156f3-5ad117";
+    const apiUrl = `https://aviation-edge.com/v2/public/timetable?iataCode=PLS&type=departure&key=${apiKey}`;
+    const DELAY_THRESHOLD_MINUTES = 15;
+
+    const airportMap = {
+      JFK: "New York – JFK",
+      MIA: "Miami – MIA",
+      ATL: "Atlanta – ATL",
+      FLL: "Fort Lauderdale – FLL",
+      DFW: "Dallas – DFW",
+      CLT: "Charlotte – CLT",
+      EWR: "Newark – EWR",
+      YYZ: "Toronto – YYZ",
+      LGA: "New York – LGA",
+      BGI: "Barbados – BGI",
+      KIN: "Kingston – KIN",
+      MBJ: "Montego Bay – MBJ",
+      SJU: "San Juan – SJU",
+      PHL: "Philadelphia – PHL",
+      ORD: "Chicago – ORD",
+      BWI: "Baltimore – BWI",
+      MCO: "Orlando – MCO",
+      CAP: "Cap-Haïtien – CAP",
+      STI: "Santiago – STI",
+      SDQ: "Santo Domingo – SDQ",
+      NAS: "Nassau – NAS",
+      GDT: "Grand Turk – GDT",
+      XSC: "South Caicos – XSC",
+      BOS: "Boston – BOS",
+      IAH: "Houston – IAH"
+    };
+
+    function createTableSection(title, flights) {
+      let html = `
+        <h2>${title}</h2>
+        <div class="table-container">
+          <table>
+            <tr>
+              <th>Logo</th>
+              <th>Airline</th>
+              <th>Flight</th>
+              <th>To</th>
+              <th>Scheduled</th>
+              <th>Estimated</th>
+              <th>Status</th>
+              <th>Delay</th>
+            </tr>`;
+
+      flights.forEach(flight => {
+        const flightNumber = flight.flight?.iataNumber || "N/A";
+        const airline = flight.airline?.name || "N/A";
+        const airlineCode = flight.airline?.iataCode || "";
+        const iataCode = flight.arrival?.iataCode || "N/A";
+        const destination = airportMap[iataCode] || iataCode;
+
+        const sched = new Date(flight.departure.scheduledTime);
+        const est = flight.departure.estimatedTime ? new Date(flight.departure.estimatedTime) : null;
+        const delay = flight.departure?.delay || 0;
+
+        const scheduled = sched.toLocaleTimeString('en-US', {
+          hour: '2-digit', minute: '2-digit', timeZone: 'America/Grand_Turk'
+        });
+
+        const estimated = est
+          ? est.toLocaleTimeString('en-US', {
+              hour: '2-digit', minute: '2-digit', timeZone: 'America/Grand_Turk'
+            })
+          : "N/A";
+
+        // ✈️ Final Status Logic Based on Rules
+        let rawStatus = (flight.status || "").toLowerCase();
+        let displayStatus = "", statusColor = "#ccc";
+
+        if (rawStatus === "active") {
+          displayStatus = "Departed";
+          statusColor = "#2196f3";
+        } else if (est && sched.getTime() !== est.getTime() && delay >= DELAY_THRESHOLD_MINUTES) {
+          displayStatus = "Delayed";
+          statusColor = "#ff9800";
+        } else {
+          displayStatus = "On Time";
+          statusColor = "#4caf50";
+        }
+
+        const logoUrl = airlineCode
+          ? `https://content.airhex.com/content/logos/airlines_${airlineCode}_200_100_s.png`
+          : "";
+
+        const rowClass = delay >= 60 ? 'highlight-delay' : '';
+        const delayDisplay = delay >= DELAY_THRESHOLD_MINUTES ? `${delay} min` : "";
+
+        html += `
+          <tr class="${rowClass}">
+            <td>${logoUrl ? `<img src="${logoUrl}" alt="${airlineCode}" class="airline-logo">` : ""}</td>
+            <td>${airline}</td>
+            <td>${flightNumber}</td>
+            <td>${destination}</td>
+            <td>${scheduled}</td>
+            <td>${estimated}</td>
+            <td style="color: ${statusColor}; font-weight: bold;">${displayStatus}</td>
+            <td>${delayDisplay}</td>
+          </tr>`;
+      });
+
+      html += "</table></div>";
+      return html;
+    }
+
+    fetch(apiUrl)
+      .then(response => {
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        return response.json();
+      })
+      .then(data => {
+        const now = new Date();
+        const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+        const sixHoursAhead = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+
+        const validFlights = data.filter(flight => {
+          const timeStr = flight.departure?.scheduledTime;
+          return timeStr && new Date(timeStr) >= sixHoursAgo && new Date(timeStr) <= sixHoursAhead;
+        });
+
+        if (validFlights.length === 0) {
+          document.getElementById("flightTables").innerHTML =
+            "<p style='text-align:center;'>No departures found for the current window.</p>";
+          return;
+        }
+
+        const groups = { morning: [], afternoon: [], evening: [] };
+
+        validFlights.forEach(flight => {
+          const hour = new Date(flight.departure.scheduledTime).getHours();
+          if (hour < 12) groups.morning.push(flight);
+          else if (hour < 18) groups.afternoon.push(flight);
+          else groups.evening.push(flight);
+        });
+
+        for (const key in groups) {
+          groups[key].sort((a, b) =>
+            new Date(a.departure.scheduledTime) - new Date(b.departure.scheduledTime)
+          );
+        }
+
+        const container = document.getElementById("flightTables");
+        container.innerHTML =
+          createTableSection("Morning Flights", groups.morning) +
+          createTableSection("Afternoon Flights", groups.afternoon) +
+          createTableSection("Evening Flights", groups.evening);
+      })
+      .catch(error => {
+        console.error("Fetch error:", error);
+        document.getElementById("flightTables").innerHTML =
+          `<p style='text-align:center;'>Error loading flight data: ${error.message}</p>`;
+      });
+  </script>
+</body>
+</html>
