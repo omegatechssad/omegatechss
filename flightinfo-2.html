@@ -106,7 +106,7 @@
 
   <script>
     const apiKey = "e156f3-5ad117";
-    const apiUrl = `https://aviation-edge.com/v2/public/timetable?iataCode=PLS&type=departure&key=${apiKey}&t=${Date.now()}`;
+    const apiUrl = `https://aviation-edge.com/v2/public/timetable?iataCode=PLS&type=departure&key=${apiKey}`;
     const DELAY_THRESHOLD_MINUTES = 15;
 
     const airportMap = {
@@ -226,8 +226,6 @@
       .then(data => {
         updateCurrentTime();
 
-        console.log("API response:", data);
-
         if (!Array.isArray(data)) {
           throw new Error("Unexpected API response format");
         }
@@ -278,11 +276,9 @@
           `<p style='text-align:center;'>Error loading flight data: ${error.message}</p>`;
       });
 
-    // Scroll loop only in flight table container
     function autoScrollLoop() {
       const scrollDelay = 5000;
       const scrollDuration = 5000;
-
       const scrollContainer = document.getElementById('scrollContainer');
 
       function scrollToBottom() {
