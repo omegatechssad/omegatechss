@@ -83,7 +83,6 @@
       50% { color: #fff; }
     }
 
-    /* Scrollable container for flight table */
     #scrollContainer {
       max-height: 85vh;
       overflow-y: auto;
@@ -226,6 +225,13 @@
       })
       .then(data => {
         updateCurrentTime();
+
+        console.log("API response:", data);
+
+        if (!Array.isArray(data)) {
+          throw new Error("Unexpected API response format");
+        }
+
         const now = new Date();
         const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
         const sixHoursAhead = new Date(now.getTime() + 6 * 60 * 60 * 1000);
@@ -272,7 +278,7 @@
           `<p style='text-align:center;'>Error loading flight data: ${error.message}</p>`;
       });
 
-    // Auto-scroll only the flight table section in a loop
+    // Scroll loop only in flight table container
     function autoScrollLoop() {
       const scrollDelay = 5000;
       const scrollDuration = 5000;
