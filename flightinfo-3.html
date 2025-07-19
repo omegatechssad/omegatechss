@@ -279,51 +279,79 @@
 
     function autoScrollLoop() {
       const scrollContainer = document.getElementById('scrollContainer');
-      const scrollStep = 1;
-      const scrollInterval = 20;
-      const pauseDuration = 4000;
-      const userPauseAfterScroll = 20000;
+      const totalScrollDuration = 120000; // 2 minutes
+      const pauseDuration = 4000; // 4 seconds
+      let isPaused = false;
+      let isScrolling = false;
+      let animationFrame;
 
-      let scrollingDown = true;
-      let scrollTimer = null;
-      let userScrolled = false;
-      let userScrollTimeout;
+      const button = document.createElement('button');
+      button.textContent = 'Pause Scrolling';
+      button.style.position = 'fixed';
+      button.style.bottom = '20px';
+      button.style.right = '20px';
+      button.style.padding = '10px 16px';
+      button.style.fontSize = '1em';
+      button.style.border = 'none';
+      button.style.borderRadius = '8px';
+      button.style.backgroundColor = '#333';
+      button.style.color = '#fff';
+      button.style.zIndex = '1000';
+      button.style.cursor = 'pointer';
+      document.body.appendChild(button);
 
-      function scrollContent() {
-        clearInterval(scrollTimer);
-        scrollTimer = setInterval(() => {
-          if (userScrolled) return;
-
-          const atBottom = scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight;
-          const atTop = scrollContainer.scrollTop === 0;
-
-          if (scrollingDown && atBottom) {
-            clearInterval(scrollTimer);
-            setTimeout(() => {
-              scrollingDown = false;
-              scrollContent();
-            }, pauseDuration);
-          } else if (!scrollingDown && atTop) {
-            clearInterval(scrollTimer);
-            setTimeout(() => {
-              scrollingDown = true;
-              scrollContent();
-            }, pauseDuration);
-          } else {
-            scrollContainer.scrollTop += scrollingDown ? scrollStep : -scrollStep;
-          }
-        }, scrollInterval);
-      }
-
-      scrollContainer.addEventListener('scroll', () => {
-        userScrolled = true;
-        clearTimeout(userScrollTimeout);
-        userScrollTimeout = setTimeout(() => {
-          userScrolled = false;
-        }, userPauseAfterScroll);
+      button.addEventListener('click', () => {
+        isPaused = !isPaused;
+        button.textContent = isPaused ? 'Resume Scrolling' : 'Pause Scrolling';
+        if (!isPaused && !isScrolling) scrollDown();
       });
 
-      scrollContent();
+      function smoothScroll(start, end, duration, onComplete) {
+        const distance = end - start;
+        const startTime = performance.now();
+        isScrolling = true;
+
+        function step(currentTime) {
+          if (isPaused) {
+            animationFrame = requestAnimationFrame(step);
+            return;
+          }
+
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const easedProgress = easeInOutQuad(progress);
+          scrollContainer.scrollTop = start + distance * easedProgress;
+
+          if (progress < 1) {
+            animationFrame = requestAnimationFrame(step);
+          } else {
+            isScrolling = false;
+            setTimeout(onComplete, pauseDuration);
+          }
+        }
+
+        animationFrame = requestAnimationFrame(step);
+      }
+
+      function easeInOutQuad(t) {
+        return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      }
+
+      function scrollDown() {
+        if (isPaused) return;
+        const start = scrollContainer.scrollTop;
+        const end = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+        smoothScroll(start, end, totalScrollDuration, scrollUp);
+      }
+
+      function scrollUp() {
+        if (isPaused) return;
+        const start = scrollContainer.scrollTop;
+        const end = 0;
+        smoothScroll(start, end, totalScrollDuration, scrollDown);
+      }
+
+      setTimeout(scrollDown, pauseDuration);
     }
 
     window.onload = function () {
