@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PLS Airport Departures</title>
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0;
+      padding: 10px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2em;
+      margin: 20px 0 10px;
+    }
+
+    #currentTime, #lastUpdated, #nextRefresh {
+      text-align: center;
+      font-size: 0.95em;
+      color: #999;
+      margin-bottom: 5px;
+    }
+
+    h2 {
+      text-align: center;
+      font-size: 1.5em;
+      margin: 30px 0 10px;
+      color: #ffd700;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      margin-bottom: 40px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 800px;
+      border-collapse: collapse;
+      margin: 0 auto;
+    }
+
+    th, td {
+      padding: 10px;
+      font-size: 1.1em;
+      text-align: center;
+      border-bottom: 1px solid #333;
+    }
+
+    th {
+      background-color: #222;
+      position: sticky;
+      top: 0;
+    }
+
+    tr:nth-child(even) {
+      background-color: #111;
+    }
+
+    .highlight-delay {
+      background-color: #660000 !important;
+    }
+
+    td img.airline-logo {
+      height: 36px;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .flash-cancelled {
+      animation: flashText 1s infinite;
+      font-weight: bold;
+    }
+
+    @keyframes flashText {
+      0%, 100% { color: #f44336; }
+      50% { color: #fff; }
+    }
+
+    #scrollContainer {
+      max-height: 85vh;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+    }
+
+    @media (max-width: 600px) {
+      th, td {
+        font-size: 1em;
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>PLS Airport Departures</h1>
+  <div id="currentTime"></div>
+  <div id="lastUpdated"></div>
+  <div id="nextRefresh"></div>
+  <div id="scrollContainer">
+    <div id="flightTables"></div>
+  </div>
+
+  <script>
+    const apiKey = "e156f3-5ad117";
+    const apiUrl = `https://aviation-edge.com/v2/public/timetable?iataCode=PLS&type=departure&key=${apiKey}`;
+    const DELAY_THRESHOLD_MINUTES = 15;
+    let nextRefreshInSeconds = 480;
+
+    const airportMap = {
+      JFK: "New York – JFK", MIA: "Miami – MIA", ATL: "Atlanta – ATL", FLL: "Fort Lauderdale – FLL",
+      DFW: "Dallas – DFW", CLT: "Charlotte – CLT", EWR: "Newark – EWR", YYZ: "Toronto – YYZ",
+      LGA: "New York – LGA", BGI: "Barbados – BGI", KIN: "Kingston – KIN", MBJ: "Montego Bay – MBJ",
+      SJU: "San Juan – SJU", PHL: "Philadelphia – PHL", ORD: "Chicago – ORD", BWI: "Baltimore – BWI",
+      MCO: "Orlando – MCO", CAP: "Cap-Haïtien – CAP", STI: "Santiago – STI", SDQ: "Santo Domingo – SDQ",
+      NAS: "Nassau – NAS", GDT: "Grand Turk – GDT", XSC: "South Caicos – XSC", BOS: "Boston – BOS",
+      IAH: "Houston – IAH",
+      PAP: "Port-au-Prince – PAP", LAS: "Las Vegas – LAS", IAD: "Washington Dulles – IAD",
+      YUL: "Montreal – YUL", PBI: "West Palm Beach – PBI", MCI: "Kansas City – MCI",
+      SUA: "Stuart – SUA", FTW: "Fort Worth Meacham – FTW"
+    };
+
+    function updateCurrentTime() {
+      const now = new Date();
+      const dateTimeString = now.toLocaleString('en-US', {
+        timeZone: 'America/Grand_Turk',
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      document.getElementById("currentTime").innerText = `Current Local Time: ${dateTimeString}`;
+    }
+
+    function startRefreshCountdown() {
+      setInterval(() => {
+        if (nextRefreshInSeconds > 0) {
+          nextRefreshInSeconds--;
+          const minutes = Math.floor(nextRefreshInSeconds / 60);
+          const seconds = nextRefreshInSeconds % 60;
+          document.getElementById("nextRefresh").innerText =
+            `Next update in: ${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+        }
+      }, 1000);
+    }
+
+    function fetchFlightData() {
+      fetch(apiUrl, { cache: 'no-store' })
+        .then(response => response.json())
+        .then(data => {
+          updateCurrentTime();
+          const updatedDateTime = new Date().toLocaleString('en-US', {
+            timeZone: 'America/Grand_Turk',
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          });
+          document.getElementById("lastUpdated").innerText = `Last updated: ${updatedDateTime}`;
+          nextRefreshInSeconds = 480;
+
+          const now = new Date();
+          const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+          const sixHoursAhead = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+
+          const validFlights = Array.isArray(data) ? data.filter(flight => {
+            const timeStr = flight.departure?.scheduledTime;
+            return timeStr && new Date(timeStr) >= sixHoursAgo && new Date(timeStr) <= sixHoursAhead;
+          }) : [];
+
+          const groups = { morning: [], afternoon: [], evening: [] };
+          validFlights.forEach(flight => {
+            const schedTime = new Date(flight.departure.scheduledTime);
+            const localHour = new Date(
+              schedTime.toLocaleString('en-US', { timeZone: 'America/Grand_Turk' })
+            ).getHours();
+            if (localHour < 12) groups.morning.push(flight);
+            else if (localHour < 18) groups.afternoon.push(flight);
+            else groups.evening.push(flight);
+          });
+
+          for (const key in groups) {
+            groups[key].sort((a, b) =>
+              new Date(a.departure.scheduledTime) - new Date(b.departure.scheduledTime)
+            );
+          }
+
+          const container = document.getElementById("flightTables");
+          container.innerHTML =
+            createTableSection("Morning Flights", groups.morning) +
+            createTableSection("Afternoon Flights", groups.afternoon) +
+            createTableSection("Evening Flights", groups.evening);
+        })
+        .catch(error => {
+          console.error("Fetch error:", error);
+          document.getElementById("flightTables").innerHTML =
+            `<p style='text-align:center;'>Error loading flight data: ${error.message}</p>`;
+        });
+    }
+
+    function createTableSection(title, flights) {
+      let html = `
+        <h2>${title}</h2>
+        <div class="table-container">
+          <table>
+            <tr>
+              <th>Logo</th>
+              <th>Airline</th>
+              <th>Flight</th>
+              <th>To</th>
+              <th>Scheduled</th>
+              <th>Estimated</th>
+              <th>Actual</th>
+              <th>Status</th>
+              <th>Delay</th>
+            </tr>`;
+
+      flights.forEach(flight => {
+        const flightNumber = flight.flight?.iataNumber || "N/A";
+        const airline = flight.airline?.name || "N/A";
+        const airlineCode = flight.airline?.iataCode || "";
+        const iataCode = flight.arrival?.iataCode || "N/A";
+        const destination = airportMap[iataCode] || iataCode;
+        const sched = new Date(flight.departure.scheduledTime);
+        const est = flight.departure.estimatedTime ? new Date(flight.departure.estimatedTime) : null;
+        const actual = flight.departure.actualTime ? new Date(flight.departure.actualTime) : null;
+        const delay = flight.departure?.delay || 0;
+
+        const scheduled = sched.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Grand_Turk' });
+        const estimated = est ? est.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Grand_Turk' }) : scheduled;
+        const actualDisplay = actual ? actual.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Grand_Turk' }) : "—";
+
+        let displayStatus = "", statusColor = "#ccc", statusClass = "";
+        const nowGT = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Grand_Turk' }));
+        const rawStatus = (flight.status || "").toLowerCase();
+
+        if (rawStatus === "cancelled") {
+          displayStatus = "Cancelled";
+          statusColor = "#f44336";
+          statusClass = "flash-cancelled";
+        } else if (rawStatus === "active" && actual && actual < nowGT) {
+          displayStatus = "Departed";
+          statusColor = "#2196f3";
+        } else if (est && sched.getTime() !== est.getTime() && delay >= DELAY_THRESHOLD_MINUTES) {
+          displayStatus = "Delayed";
+          statusColor = "#ff9800";
+        } else {
+          displayStatus = "On Time";
+          statusColor = "#4caf50";
+        }
+
+        const logoUrl = airlineCode
+          ? `https://content.airhex.com/content/logos/airlines_${airlineCode}_200_100_s.png`
+          : "";
+
+        const rowClass = delay >= 60 ? 'highlight-delay' : '';
+        const delayDisplay = delay >= DELAY_THRESHOLD_MINUTES ? `${delay} min` : "";
+
+        html += `
+          <tr class="${rowClass}">
+            <td>${logoUrl ? `<img src="${logoUrl}" alt="${airlineCode}" class="airline-logo">` : ""}</td>
+            <td>${airline}</td>
+            <td>${flightNumber}</td>
+            <td>${destination}</td>
+            <td>${scheduled}</td>
+            <td>${estimated}</td>
+            <td>${actualDisplay}</td>
+            <td style="color: ${statusColor};" class="${statusClass}">${displayStatus}</td>
+            <td>${delayDisplay}</td>
+          </tr>`;
+      });
+
+      html += "</table></div>";
+      return html;
+    }
+
+    function autoScrollLoop() {
+      const scrollContainer = document.getElementById('scrollContainer');
+      const scrollDuration = 180000;
+      const pauseTop = 4000;
+      const pauseBottom = 8000;
+
+      function smoothScroll(start, end, duration, onComplete) {
+        const distance = end - start;
+        const startTime = performance.now();
+
+        function step(currentTime) {
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+          scrollContainer.scrollTop = start + distance * eased;
+
+          if (progress < 1) {
+            requestAnimationFrame(step);
+          } else {
+            setTimeout(onComplete, pauseBottom);
+          }
+        }
+
+        requestAnimationFrame(step);
+      }
+
+      function scrollDown() {
+        const start = scrollContainer.scrollTop;
+        const end = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+        smoothScroll(start, end, scrollDuration, scrollUpInstant);
+      }
+
+      function scrollUpInstant() {
+        scrollContainer.scrollTop = 0;
+        setTimeout(scrollDown, pauseTop);
+      }
+
+      setTimeout(scrollDown, pauseTop);
+    }
+
+    window.onload = function () {
+      updateCurrentTime();
+      fetchFlightData();
+      setInterval(fetchFlightData, 8 * 60 * 1000);
+      startRefreshCountdown();
+      autoScrollLoop();
+    };
+  </script>
+</body>
+</html>
