@@ -279,46 +279,57 @@
 
     function autoScrollLoop() {
       const scrollContainer = document.getElementById('scrollContainer');
-      const scrollDuration = 1000; // 1 sec
-      const pauseDuration = 4000;  // 4 sec
+      const scrollStep = 1;
+      const scrollInterval = 20;
+      const pauseDuration = 4000;
+      const userPauseAfterScroll = 20000;
 
-      function scrollTo(position, callback) {
-        const start = scrollContainer.scrollTop;
-        const change = position - start;
-        const startTime = performance.now();
+      let scrollingDown = true;
+      let scrollTimer = null;
+      let userScrolled = false;
+      let userScrollTimeout;
 
-        function animateScroll(currentTime) {
-          const elapsed = currentTime - startTime;
-          const progress = Math.min(elapsed / scrollDuration, 1);
-          scrollContainer.scrollTop = start + change * easeInOutQuad(progress);
+      function scrollContent() {
+        clearInterval(scrollTimer);
+        scrollTimer = setInterval(() => {
+          if (userScrolled) return;
 
-          if (progress < 1) {
-            requestAnimationFrame(animateScroll);
-          } else if (typeof callback === 'function') {
-            setTimeout(callback, pauseDuration);
+          const atBottom = scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight;
+          const atTop = scrollContainer.scrollTop === 0;
+
+          if (scrollingDown && atBottom) {
+            clearInterval(scrollTimer);
+            setTimeout(() => {
+              scrollingDown = false;
+              scrollContent();
+            }, pauseDuration);
+          } else if (!scrollingDown && atTop) {
+            clearInterval(scrollTimer);
+            setTimeout(() => {
+              scrollingDown = true;
+              scrollContent();
+            }, pauseDuration);
+          } else {
+            scrollContainer.scrollTop += scrollingDown ? scrollStep : -scrollStep;
           }
-        }
-
-        requestAnimationFrame(animateScroll);
+        }, scrollInterval);
       }
 
-      function easeInOutQuad(t) {
-        return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-      }
+      scrollContainer.addEventListener('scroll', () => {
+        userScrolled = true;
+        clearTimeout(userScrollTimeout);
+        userScrollTimeout = setTimeout(() => {
+          userScrolled = false;
+        }, userPauseAfterScroll);
+      });
 
-      function loopScroll() {
-        scrollTo(scrollContainer.scrollHeight - scrollContainer.clientHeight, () => {
-          scrollTo(0, loopScroll);
-        });
-      }
-
-      loopScroll(); // start
+      scrollContent();
     }
 
     window.onload = function () {
       updateCurrentTime();
       fetchFlightData();
-      setInterval(fetchFlightData, 8 * 60 * 1000); // refresh every 8 min
+      setInterval(fetchFlightData, 8 * 60 * 1000); // every 8 min
       autoScrollLoop();
     };
   </script>
