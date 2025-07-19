@@ -16,7 +16,14 @@
     h1 {
       text-align: center;
       font-size: 2em;
-      margin: 20px 0;
+      margin: 20px 0 10px;
+    }
+
+    #currentTime {
+      text-align: center;
+      font-size: 1em;
+      margin-bottom: 20px;
+      color: #ccc;
     }
 
     h2 {
@@ -65,6 +72,22 @@
       margin: 0 auto;
     }
 
+    .flash-cancelled {
+      animation: flashText 1s infinite;
+      font-weight: bold;
+    }
+
+    @keyframes flashText {
+      0%, 100% { color: #f44336; }
+      50% { color: #fff; }
+    }
+
+    #scrollContainer {
+      max-height: 85vh;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+    }
+
     @media (max-width: 600px) {
       th, td {
         font-size: 1em;
@@ -75,7 +98,10 @@
 </head>
 <body>
   <h1>PLS Airport Departures</h1>
-  <div id="flightTables"></div>
+  <div id="currentTime"></div>
+  <div id="scrollContainer">
+    <div id="flightTables"></div>
+  </div>
 
   <script>
     const apiKey = "e156f3-5ad117";
@@ -88,8 +114,19 @@
       LGA: "New York – LGA", BGI: "Barbados – BGI", KIN: "Kingston – KIN", MBJ: "Montego Bay – MBJ",
       SJU: "San Juan – SJU", PHL: "Philadelphia – PHL", ORD: "Chicago – ORD", BWI: "Baltimore – BWI",
       MCO: "Orlando – MCO", CAP: "Cap-Haïtien – CAP", STI: "Santiago – STI", SDQ: "Santo Domingo – SDQ",
-      NAS: "Nassau – NAS", GDT: "Grand Turk – GDT", XSC: "South Caicos – XSC", BOS: "Boston – BOS", IAH: "Houston – IAH"
+      NAS: "Nassau – NAS", GDT: "Grand Turk – GDT", XSC: "South Caicos – XSC", BOS: "Boston – BOS",
+      IAH: "Houston – IAH"
     };
+
+    function updateCurrentTime() {
+      const nowLocal = new Date().toLocaleTimeString('en-US', {
+        timeZone: 'America/Grand_Turk',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      document.getElementById("currentTime").innerText = `Current Local Time: ${nowLocal}`;
+    }
 
     function createTableSection(title, flights) {
       let html = `
@@ -103,6 +140,7 @@
               <th>To</th>
               <th>Scheduled</th>
               <th>Estimated</th>
+              <th>Actual</th>
               <th>Status</th>
               <th>Delay</th>
             </tr>`;
@@ -116,6 +154,7 @@
 
         const sched = new Date(flight.departure.scheduledTime);
         const est = flight.departure.estimatedTime ? new Date(flight.departure.estimatedTime) : null;
+        const actual = flight.departure.actualTime ? new Date(flight.departure.actualTime) : null;
         const delay = flight.departure?.delay || 0;
 
         const scheduled = sched.toLocaleTimeString('en-US', {
@@ -126,12 +165,23 @@
           ? est.toLocaleTimeString('en-US', {
               hour: '2-digit', minute: '2-digit', timeZone: 'America/Grand_Turk'
             })
-          : "N/A";
+          : scheduled;
 
-        let rawStatus = (flight.status || "").toLowerCase();
-        let displayStatus = "", statusColor = "#ccc";
+        const actualDisplay = actual
+          ? actual.toLocaleTimeString('en-US', {
+              hour: '2-digit', minute: '2-digit', timeZone: 'America/Grand_Turk'
+            })
+          : "—";
 
-        if (rawStatus === "active") {
+        let displayStatus = "", statusColor = "#ccc", statusClass = "";
+        const nowGT = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Grand_Turk' }));
+        const rawStatus = (flight.status || "").toLowerCase();
+
+        if (rawStatus === "cancelled") {
+          displayStatus = "Cancelled";
+          statusColor = "#f44336";
+          statusClass = "flash-cancelled";
+        } else if (rawStatus === "active" && actual && actual < nowGT) {
           displayStatus = "Departed";
           statusColor = "#2196f3";
         } else if (est && sched.getTime() !== est.getTime() && delay >= DELAY_THRESHOLD_MINUTES) {
@@ -157,7 +207,8 @@
             <td>${destination}</td>
             <td>${scheduled}</td>
             <td>${estimated}</td>
-            <td style="color: ${statusColor}; font-weight: bold;">${displayStatus}</td>
+            <td>${actualDisplay}</td>
+            <td style="color: ${statusColor};" class="${statusClass}">${displayStatus}</td>
             <td>${delayDisplay}</td>
           </tr>`;
       });
@@ -166,13 +217,19 @@
       return html;
     }
 
-    function loadFlights() {
-      fetch(apiUrl)
+    function fetchFlightData() {
+      fetch(apiUrl, { cache: 'no-store' })
         .then(response => {
           if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
           return response.json();
         })
         .then(data => {
+          updateCurrentTime();
+
+          if (!Array.isArray(data)) {
+            throw new Error("Unexpected API response format");
+          }
+
           const now = new Date();
           const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
           const sixHoursAhead = new Date(now.getTime() + 6 * 60 * 60 * 1000);
@@ -181,6 +238,12 @@
             const timeStr = flight.departure?.scheduledTime;
             return timeStr && new Date(timeStr) >= sixHoursAgo && new Date(timeStr) <= sixHoursAhead;
           });
+
+          if (validFlights.length === 0) {
+            document.getElementById("flightTables").innerHTML =
+              "<p style='text-align:center;'>No departures found for the current window.</p>";
+            return;
+          }
 
           const groups = { morning: [], afternoon: [], evening: [] };
 
@@ -214,57 +277,50 @@
         });
     }
 
-    // Initial load
-    loadFlights();
+    function autoScrollLoop() {
+      const scrollContainer = document.getElementById('scrollContainer');
+      const scrollDuration = 1000; // 1 sec
+      const pauseDuration = 4000;  // 4 sec
 
-    // Refresh every 8 minutes (480,000 ms)
-    setInterval(loadFlights, 480000);
-  </script>
+      function scrollTo(position, callback) {
+        const start = scrollContainer.scrollTop;
+        const change = position - start;
+        const startTime = performance.now();
 
-  <!-- ✅ Auto Scroll with Pause at Top & Bottom -->
-  <script>
-    function autoScrollWithPause(speed = 0.5, pauseTime = 1500) {
-      let scrollDirection = 1;
-      let isPaused = false;
+        function animateScroll(currentTime) {
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(elapsed / scrollDuration, 1);
+          scrollContainer.scrollTop = start + change * easeInOutQuad(progress);
 
-      function scrollStep() {
-        if (isPaused) return;
-
-        window.scrollBy(0, scrollDirection * speed);
-
-        const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
-        const scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
-        const clientHeight = document.documentElement.clientHeight || window.innerHeight;
-
-        if (scrollTop + clientHeight >= scrollHeight - 2) {
-          scrollDirection = -1;
-          isPaused = true;
-          setTimeout(() => {
-            isPaused = false;
-            requestAnimationFrame(scrollStep);
-          }, pauseTime);
-          return;
+          if (progress < 1) {
+            requestAnimationFrame(animateScroll);
+          } else if (typeof callback === 'function') {
+            setTimeout(callback, pauseDuration);
+          }
         }
 
-        if (scrollTop <= 0) {
-          scrollDirection = 1;
-          isPaused = true;
-          setTimeout(() => {
-            isPaused = false;
-            requestAnimationFrame(scrollStep);
-          }, pauseTime);
-          return;
-        }
-
-        requestAnimationFrame(scrollStep);
+        requestAnimationFrame(animateScroll);
       }
 
-      scrollStep();
+      function easeInOutQuad(t) {
+        return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      }
+
+      function loopScroll() {
+        scrollTo(scrollContainer.scrollHeight - scrollContainer.clientHeight, () => {
+          scrollTo(0, loopScroll);
+        });
+      }
+
+      loopScroll(); // start
     }
 
-    window.addEventListener("load", () => {
-      setTimeout(() => autoScrollWithPause(0.5, 2000), 1000); // Scroll speed and pause time
-    });
+    window.onload = function () {
+      updateCurrentTime();
+      fetchFlightData();
+      setInterval(fetchFlightData, 8 * 60 * 1000); // refresh every 8 min
+      autoScrollLoop();
+    };
   </script>
 </body>
 </html>
