@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PLS Airport Departures</title>
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0;
+      padding: 10px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2em;
+      margin: 20px 0;
+    }
+
+    h2 {
+      text-align: center;
+      font-size: 1.5em;
+      margin: 30px 0 10px;
+      color: #ffd700;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      margin-bottom: 40px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 800px;
+      border-collapse: collapse;
+      margin: 0 auto;
+    }
+
+    th, td {
+      padding: 10px;
+      font-size: 1.1em;
+      text-align: center;
+      border-bottom: 1px solid #333;
+    }
+
+    th {
+      background-color: #222;
+      position: sticky;
+      top: 0;
+    }
+
+    tr:nth-child(even) {
+      background-color: #111;
+    }
+
+    .highlight-delay {
+      background-color: #660000 !important;
+    }
+
+    td img.airline-logo {
+      height: 36px;
+      display: block;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 600px) {
+      th, td {
+        font-size: 1em;
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>PLS Airport Departures</h1>
+  <div id="flightTables"></div>
+
+  <script>
+    const apiKey = "e156f3-5ad117";
+    const apiUrl = `https://aviation-edge.com/v2/public/timetable?iataCode=PLS&type=departure&key=${apiKey}`;
+    const DELAY_THRESHOLD_MINUTES = 15;
+
+    const airportMap = {
+      JFK: "New York – JFK", MIA: "Miami – MIA", ATL: "Atlanta – ATL", FLL: "Fort Lauderdale – FLL",
+      DFW: "Dallas – DFW", CLT: "Charlotte – CLT", EWR: "Newark – EWR", YYZ: "Toronto – YYZ",
+      LGA: "New York – LGA", BGI: "Barbados – BGI", KIN: "Kingston – KIN", MBJ: "Montego Bay – MBJ",
+      SJU: "San Juan – SJU", PHL: "Philadelphia – PHL", ORD: "Chicago – ORD", BWI: "Baltimore – BWI",
+      MCO: "Orlando – MCO", CAP: "Cap-Haïtien – CAP", STI: "Santiago – STI", SDQ: "Santo Domingo – SDQ",
+      NAS: "Nassau – NAS", GDT: "Grand Turk – GDT", XSC: "South Caicos – XSC", BOS: "Boston – BOS", IAH: "Houston – IAH"
+    };
+
+    function createTableSection(title, flights) {
+      let html = `
+        <h2>${title}</h2>
+        <div class="table-container">
+          <table>
+            <tr>
+              <th>Logo</th>
