@@ -286,11 +286,52 @@
       return html;
     }
 
+    function autoScrollLoop() {
+      const scrollContainer = document.getElementById('scrollContainer');
+      const scrollDuration = 120000;
+      const pauseTop = 4000;
+      const pauseBottom = 8000;
+
+      function smoothScroll(start, end, duration, onComplete) {
+        const distance = end - start;
+        const startTime = performance.now();
+
+        function step(currentTime) {
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+          scrollContainer.scrollTop = start + distance * eased;
+
+          if (progress < 1) {
+            requestAnimationFrame(step);
+          } else {
+            setTimeout(onComplete, pauseBottom);
+          }
+        }
+
+        requestAnimationFrame(step);
+      }
+
+      function scrollDown() {
+        const start = scrollContainer.scrollTop;
+        const end = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+        smoothScroll(start, end, scrollDuration, scrollUpInstant);
+      }
+
+      function scrollUpInstant() {
+        scrollContainer.scrollTop = 0;
+        setTimeout(scrollDown, pauseTop);
+      }
+
+      setTimeout(scrollDown, pauseTop);
+    }
+
     window.onload = function () {
       updateCurrentTime();
       fetchFlightData();
       setInterval(fetchFlightData, 5 * 60 * 1000);
       startRefreshCountdown();
+      autoScrollLoop();
     };
   </script>
 </body>
